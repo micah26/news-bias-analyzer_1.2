@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header Section -->
+    <div class="row mb-4 align-items-center">
+        <div class="col-md-8">
+            <h2 class="fw-bold" style="font-family: var(--font-display); font-size: 2.5rem;">
+                {% if current_topic == 'latest' %}
+                    Top Headlines
+                {% else %}
+                    <span class="text-muted" style="font-size: 1.5rem;">Results for</span>
+                    <span style="color: var(--accent-primary);">"{{ current_topic }}"</span>
+                {% endif %}
+            </h2>
+            <p class="text-muted">Aggregated from trusted global sources</p>
+        </div>
+        
+        <div class="col-md-4">
+            <form action="{{ url_for('search') }}" method="POST" class="position-relative">
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        name="topic" 
+                        class="form-control" 
+                        placeholder="Search news (e.g., AI, Climate, Sports)..." 
+                        required 
+                        autocomplete="off" 
+                        id="searchInput"
+                    >
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+                
+                <!-- Search History Dropdown -->
+                {% if history %}
+                <div class="card position-absolute w-100 d-none" id="historyDropdown" style="z-index: 1000;">
+                    <ul class="list-group list-group-flush">
+                        {% for item in history %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span 
+                                class="history-text w-100" 
+                                style="cursor: pointer;"
+                                onclick="document.querySelector('input[name=topic]').value='{{ item.topic }}'; document.forms[0].submit();"
+                            >
+                                <i class="bi bi-clock-history me-2 text-muted"></i>{{ item.topic }}
+                            </span>
+                            <button 
+                                class="btn btn-sm text-danger delete-history" 
+                                data-id="{{ item.id }}"
+                                type="button"
+                            >
+                                &times;
+                            </button>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <!-- Articles Grid -->
+    <div class="row g-4">
+        {% if articles %}
+            {% for article in articles %}
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 article-card stagger-animation">
+                    <!-- Bookmark Button -->
+                    <button 
+                        class="bookmark-btn {% if article.url in bookmarked_urls %}bookmarked{% endif %}" 
+                        data-url="{{ article.url }}"
+                        data-title="{{ article.title }}"
+                        data-image="{{ article.image }}"
+                        data-source="{{ article.source }}"
+                        data-summary="{{ article.summary }}"
+                    >
+                        <i class="bi {% if article.url in bookmarked_urls %}bi-bookmark-fill{% else %}bi-bookmark{% endif %}"></i>
+                    </button>
+                    
+                    <img 
+                        src="{{ article.image }}" 
+                        class="card-img-top" 
+                        alt="{{ article.title }}"
+                        loading="lazy"
+                        onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22250%22%3E%3Crect width=%22400%22 height=%22250%22 fill=%22%231a1a1a%22/%3E%3Cg opacity=%220.1%22%3E%3Crect x=%22150%22 y=%2290%22 width=%22100%22 height=%2270%22 rx=%228%22 fill=%22white%22/%3E%3Ccircle cx=%22200%22 cy=%22110%22 r=%2212%22 fill=%22white%22/%3E%3Cpath d=%22M170 140 L180 130 L190 138 L210 115 L230 140 Z%22 fill=%22white%22/%3E%3C/g%3E%3C/svg%3E';"
+                    >
+                    
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="badge bg-secondary">{{ article.source }}</span>
+                            <small class="text-muted">{{ article.published_at }}</small>
+                        </div>
+                        
+                        <h5 class="card-title">{{ article.title }}</h5>
+                        <p class="card-text flex-grow-1">{{ (article.summary or 'No description available')|truncate(150) }}</p>
+                        
+                        <div class="d-grid gap-2 mt-3">
+                            <a 
+                                href="{{ article.url }}" 
+                                target="_blank" 
+                                class="btn btn-outline-primary btn-sm"
+                            >
+                                <i class="bi bi-arrow-up-right"></i> Read Full Article
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12 text-center py-5">
+                <i class="bi bi-newspaper" style="font-size: 4rem; color: var(--text-tertiary);"></i>
+                <h3 class="text-muted mt-3">No articles found</h3>
+                <p class="text-secondary">Try a different search term or check back later</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Search History Dropdown
+const searchInput = document.getElementById('searchInput');
+const historyDropdown = document.getElementById('historyDropdown');
+
+if (historyDropdown) {
+    searchInput.addEventListener('focus', () => {
+        historyDropdown.classList.remove('d-none');
+    });
+    
+    searchInput.addEventListener('blur', () => {
+        setTimeout(() => historyDropdown.classList.add('d-none'), 200);
+    });
+}
+
+// Delete History
+document.querySelectorAll('.delete-history').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const id = this.dataset.id;
+        
+        fetch('/delete_history', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({id: id})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                this.closest('li').remove();
+            }
+        })
+        .catch(err => console.error('Error:', err));
+    });
+});
+
+// Bookmark functionality
+document.querySelectorAll('.bookmark-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        toggleBookmark(this);
+    });
+});
+
+// Bookmark Toggle Function
+function toggleBookmark(button) {
+    const isBookmarked = button.classList.contains('bookmarked');
+    const icon = button.querySelector('i');
+    
+    // Get article data from data attributes
+    const article = {
+        url: button.dataset.url,
+        title: button.dataset.title,
+        image: button.dataset.image,
+        source: button.dataset.source,
+        summary: button.dataset.summary
+    };
+    
+    console.log('Bookmark button clicked, isBookmarked:', isBookmarked);
+    console.log('Article data:', article);
+    
+    if (isBookmarked) {
+        // Remove bookmark
+        fetch('/remove_bookmark', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url: article.url})
+        })
+        .then(response => {
+            console.log('Remove response status:', response.status);
+            if (!response.ok) {
+                throw new Error('Failed to remove bookmark');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Remove response:', data);
+            button.classList.remove('bookmarked');
+            icon.classList.remove('bi-bookmark-fill');
+            icon.classList.add('bi-bookmark');
+            showToast('Removed from bookmarks', 'info');
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            showToast('Failed to remove bookmark', 'error');
+        });
+    } else {
+        // Add bookmark
+        console.log('Adding bookmark:', article);
+        fetch('/add_bookmark', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(article)
+        })
+        .then(response => {
+            console.log('Add response status:', response.status);
+            if (response.status === 409) {
+                showToast('Already bookmarked', 'info');
+                return null;
+            }
+            if (!response.ok) {
+                throw new Error('Failed to bookmark');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Add response:', data);
+            if (data) {
+                button.classList.add('bookmarked');
+                icon.classList.remove('bi-bookmark');
+                icon.classList.add('bi-bookmark-fill');
+                showToast('Bookmarked!', 'success');
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            showToast('Failed to bookmark', 'error');
+        });
+    }
+}
+
+// Toast Notification
+function showToast(message, type = 'info') {
+    const toastContainer = document.createElement('div');
+    toastContainer.style.cssText = `
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        z-index: 9999;
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    const colors = {
+        success: 'var(--accent-lime)',
+        error: 'var(--accent-primary)',
+        info: '#00aaff'
+    };
+    
+    toastContainer.innerHTML = `
+        <div class="alert alert-${type}" style="
+            background: var(--bg-card);
+            border-left: 4px solid ${colors[type]};
+            box-shadow: var(--shadow-lg);
+            min-width: 250px;
+        ">
+            ${message}
+        </div>
+    `;
+    
+    document.body.appendChild(toastContainer);
+    
+    setTimeout(() => {
+        toastContainer.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => toastContainer.remove(), 300);
+    }, 3000);
+}
+
+// CSS for toast animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(400px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(400px); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}
