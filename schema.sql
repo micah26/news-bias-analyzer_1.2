@@ -1,25 +1,57 @@
+-- schema.sql - SQL schema for the news aggregator application
 -- Create Users table
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,  -- Unique ID for each user
-    username TEXT NOT NULL UNIQUE,         -- Username, must be unique
-    email TEXT NOT NULL UNIQUE,            -- Email, must be unique
-    password TEXT NOT NULL                 -- Hashed password (secure)
+CREATE TABLE IF NOT EXISTS user (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Create Search History table
 CREATE TABLE IF NOT EXISTS search_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,  -- Unique ID for each search
-    user_id INTEGER NOT NULL,              -- Links to the user who searched
-    topic TEXT NOT NULL,                   -- The search topic (e.g., "climate change")
-    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,  -- When the search happened
-    FOREIGN KEY (user_id) REFERENCES users(id)  -- Connects to users table
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    search_query TEXT NOT NULL,
+    searched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user(id)
 );
 
--- Create Bookmarks table (for later)
-CREATE TABLE IF NOT EXISTS bookmarks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,  -- Unique ID
-    user_id INTEGER NOT NULL,              -- Links to user
-    article_title TEXT NOT NULL,           -- Title of saved article
-    article_url TEXT NOT NULL,             -- URL of saved article
-    FOREIGN KEY (user_id) REFERENCES users(id)
+-- Create Articles table
+CREATE TABLE IF NOT EXISTS article (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    description TEXT,
+    url TEXT NOT NULL UNIQUE,
+    image_url TEXT,
+    source_name TEXT,
+    category TEXT,
+    published_at TEXT,
+    fetched_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    summary TEXT,
+    bias_score REAL,
+    bias_label TEXT,
+    sentiment_score REAL,
+    sentiment_label TEXT
+);
+
+-- Create SavedArticles table
+CREATE TABLE IF NOT EXISTS saved_article (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    article_id INTEGER NOT NULL,
+    saved_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user(id),
+    FOREIGN KEY (article_id) REFERENCES article(id),
+    UNIQUE (user_id, article_id)
+);
+
+-- Create ReadHistory table
+CREATE TABLE IF NOT EXISTS read_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    article_id INTEGER NOT NULL,
+    read_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user(id),
+    FOREIGN KEY (article_id) REFERENCES article(id)
 );

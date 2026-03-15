@@ -1,299 +1,126 @@
-{% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
+<!-- dashboard.html  -->
+{% extends 'base.html' %}
+{% from 'macros.html' import render_article_card %}
 
 {% block content %}
-<div class="container">
-    <!-- Header Section -->
-    <div class="row mb-4 align-items-center">
-        <div class="col-md-8">
-            <h2 class="fw-bold" style="font-family: var(--font-display); font-size: 2.5rem;">
-                {% if current_topic == 'latest' %}
-                    Top Headlines
-                {% else %}
-                    <span class="text-muted" style="font-size: 1.5rem;">Results for</span>
-                    <span style="color: var(--accent-primary);">"{{ current_topic }}"</span>
-                {% endif %}
-            </h2>
-            <p class="text-muted">Aggregated from trusted global sources</p>
+<div class="mb-8">
+    <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">Your Dashboard</h1>
+    <p class="text-muted">Welcome back, {{ current_user.username }}!</p>
+</div>
+
+<!-- Stat Cards -->
+<div class="article-grid mb-8" style="gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+    <div class="card" style="padding: 1.5rem;">
+        <h3 class="text-muted text-sm mb-2" style="text-transform: uppercase;">Articles Read</h3>
+        <div style="font-size: 2.5rem; font-weight: 700; color: var(--accent);">{{ reads_count }}</div>
+    </div>
+    <div class="card" style="padding: 1.5rem;">
+        <h3 class="text-muted text-sm mb-2" style="text-transform: uppercase;">Saved Articles</h3>
+        <div style="font-size: 2.5rem; font-weight: 700; color: var(--accent);">{{ saved_count }}</div>
+    </div>
+    <div class="card" style="padding: 1.5rem;">
+        <h3 class="text-muted text-sm mb-2" style="text-transform: uppercase;">Average Bias Score</h3>
+        <div style="font-size: 2.5rem; font-weight: 700; color: var(--accent);">{{ "%.2f"|format(avg_bias) }}</div>
+    </div>
+    <div class="card" style="padding: 1.5rem;">
+        <h3 class="text-muted text-sm mb-2" style="text-transform: uppercase;">Summaries Viewed</h3>
+        <div style="font-size: 2.5rem; font-weight: 700; color: var(--accent);">{{ total_ai_summaries }}</div>
+    </div>
+</div>
+
+<div class="flex flex-wrap" style="gap: 2rem; margin-bottom: 3rem;">
+    <!-- Bias Exposure Section -->
+    <div class="card" style="flex: 2; min-width: 300px; padding: 2rem;">
+        <h2 class="mb-4">Bias Exposure Profile</h2>
+        <p class="text-muted mb-4">Breakdown of the political bias in articles you've read.</p>
+        
+        <div style="display: flex; height: 30px; border-radius: 8px; overflow: hidden; margin-bottom: 1.5rem; background-color: var(--border-color);">
+            <div style="width: {{ bias_breakdown.neutral }}%; background-color: #22c55e;" title="Neutral: {{ '%.1f'|format(bias_breakdown.neutral) }}%"></div>
+            <div style="width: {{ bias_breakdown.slight }}%; background-color: #f59e0b;" title="Slight Bias: {{ '%.1f'|format(bias_breakdown.slight) }}%"></div>
+            <div style="width: {{ bias_breakdown.strong }}%; background-color: #ef4444;" title="Strong Bias: {{ '%.1f'|format(bias_breakdown.strong) }}%"></div>
         </div>
         
-        <div class="col-md-4">
-            <form action="{{ url_for('search') }}" method="POST" class="position-relative">
-                <div class="input-group">
-                    <input 
-                        type="text" 
-                        name="topic" 
-                        class="form-control" 
-                        placeholder="Search news (e.g., AI, Climate, Sports)..." 
-                        required 
-                        autocomplete="off" 
-                        id="searchInput"
-                    >
-                    <button class="btn btn-primary" type="submit">
-                        <i class="bi bi-search"></i>
-                    </button>
-                </div>
-                
-                <!-- Search History Dropdown -->
-                {% if history %}
-                <div class="card position-absolute w-100 d-none" id="historyDropdown" style="z-index: 1000;">
-                    <ul class="list-group list-group-flush">
-                        {% for item in history %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span 
-                                class="history-text w-100" 
-                                style="cursor: pointer;"
-                                onclick="document.querySelector('input[name=topic]').value='{{ item.topic }}'; document.forms[0].submit();"
-                            >
-                                <i class="bi bi-clock-history me-2 text-muted"></i>{{ item.topic }}
-                            </span>
-                            <button 
-                                class="btn btn-sm text-danger delete-history" 
-                                data-id="{{ item.id }}"
-                                type="button"
-                            >
-                                &times;
-                            </button>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                </div>
-                {% endif %}
-            </form>
+        <div class="flex justify-between text-sm font-medium">
+            <span style="color: #22c55e;">&#9632; Neutral ({{ '%.1f'|format(bias_breakdown.neutral) }}%)</span>
+            <span style="color: #f59e0b;">&#9632; Slight Bias ({{ '%.1f'|format(bias_breakdown.slight) }}%)</span>
+            <span style="color: #ef4444;">&#9632; Strong Bias ({{ '%.1f'|format(bias_breakdown.strong) }}%)</span>
+        </div>
+        
+        <!-- Sentiment Breakdown -->
+        <h2 class="mt-8 mb-4">Sentiment Breakdown</h2>
+        <p class="text-muted mb-4">Overall tone of your read articles.</p>
+        <div style="display: flex; height: 30px; border-radius: 8px; overflow: hidden; margin-bottom: 1.5rem; background-color: var(--border-color);">
+            <div style="width: {{ sentiment_breakdown.positive }}%; background-color: #3b82f6;" title="Positive: {{ '%.1f'|format(sentiment_breakdown.positive) }}%"></div>
+            <div style="width: {{ sentiment_breakdown.neutral }}%; background-color: #9ca3af;" title="Neutral: {{ '%.1f'|format(sentiment_breakdown.neutral) }}%"></div>
+            <div style="width: {{ sentiment_breakdown.negative }}%; background-color: #f97316;" title="Negative: {{ '%.1f'|format(sentiment_breakdown.negative) }}%"></div>
+        </div>
+        <div class="flex justify-between text-sm font-medium">
+            <span style="color: #3b82f6;">&#9632; Positive ({{ '%.1f'|format(sentiment_breakdown.positive) }}%)</span>
+            <span style="color: #9ca3af;">&#9632; Neutral ({{ '%.1f'|format(sentiment_breakdown.neutral) }}%)</span>
+            <span style="color: #f97316;">&#9632; Negative ({{ '%.1f'|format(sentiment_breakdown.negative) }}%)</span>
         </div>
     </div>
-
-    <!-- Articles Grid -->
-    <div class="row g-4">
-        {% if articles %}
-            {% for article in articles %}
-            <div class="col-md-6 col-lg-4">
-                <div class="card h-100 article-card stagger-animation">
-                    <!-- Bookmark Button -->
-                    <button 
-                        class="bookmark-btn {% if article.url in bookmarked_urls %}bookmarked{% endif %}" 
-                        data-url="{{ article.url }}"
-                        data-title="{{ article.title }}"
-                        data-image="{{ article.image }}"
-                        data-source="{{ article.source }}"
-                        data-summary="{{ article.summary }}"
-                    >
-                        <i class="bi {% if article.url in bookmarked_urls %}bi-bookmark-fill{% else %}bi-bookmark{% endif %}"></i>
-                    </button>
-                    
-                    <img 
-                        src="{{ article.image }}" 
-                        class="card-img-top" 
-                        alt="{{ article.title }}"
-                        loading="lazy"
-                        onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22250%22%3E%3Crect width=%22400%22 height=%22250%22 fill=%22%231a1a1a%22/%3E%3Cg opacity=%220.1%22%3E%3Crect x=%22150%22 y=%2290%22 width=%22100%22 height=%2270%22 rx=%228%22 fill=%22white%22/%3E%3Ccircle cx=%22200%22 cy=%22110%22 r=%2212%22 fill=%22white%22/%3E%3Cpath d=%22M170 140 L180 130 L190 138 L210 115 L230 140 Z%22 fill=%22white%22/%3E%3C/g%3E%3C/svg%3E';"
-                    >
-                    
-                    <div class="card-body d-flex flex-column">
-                        <div class="d-flex justify-content-between mb-2">
-                            <span class="badge bg-secondary">{{ article.source }}</span>
-                            <small class="text-muted">{{ article.published_at }}</small>
-                        </div>
-                        
-                        <h5 class="card-title">{{ article.title }}</h5>
-                        <p class="card-text flex-grow-1">{{ (article.summary or 'No description available')|truncate(150) }}</p>
-                        
-                        <div class="d-grid gap-2 mt-3">
-                            <a 
-                                href="{{ article.url }}" 
-                                target="_blank" 
-                                class="btn btn-outline-primary btn-sm"
-                            >
-                                <i class="bi bi-arrow-up-right"></i> Read Full Article
-                            </a>
-                        </div>
-                    </div>
+    
+    <!-- Reading Preferences -->
+    <div class="card" style="flex: 1; min-width: 300px; padding: 2rem;">
+        <h2 class="mb-4">Top Categories</h2>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            {% for cat in top_categories %}
+            <div>
+                <div class="flex justify-between mb-1">
+                    <span style="text-transform: capitalize; font-weight: 500;">{{ cat.name }}</span>
+                    <span class="text-muted">{{ "%.1f"|format(cat.pct) }}%</span>
+                </div>
+                <div style="height: 8px; background-color: var(--border-color); border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; width: {{ cat.pct }}%; background-color: var(--accent);"></div>
                 </div>
             </div>
             {% endfor %}
-        {% else %}
-            <div class="col-12 text-center py-5">
-                <i class="bi bi-newspaper" style="font-size: 4rem; color: var(--text-tertiary);"></i>
-                <h3 class="text-muted mt-3">No articles found</h3>
-                <p class="text-secondary">Try a different search term or check back later</p>
-            </div>
-        {% endif %}
+            {% if not top_categories %}
+                <p class="text-muted mt-4">Read some articles to see your preferences.</p>
+            {% endif %}
+        </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_js %}
-<script>
-// Search History Dropdown
-const searchInput = document.getElementById('searchInput');
-const historyDropdown = document.getElementById('historyDropdown');
-
-if (historyDropdown) {
-    searchInput.addEventListener('focus', () => {
-        historyDropdown.classList.remove('d-none');
-    });
-    
-    searchInput.addEventListener('blur', () => {
-        setTimeout(() => historyDropdown.classList.add('d-none'), 200);
-    });
-}
-
-// Delete History
-document.querySelectorAll('.delete-history').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const id = this.dataset.id;
-        
-        fetch('/delete_history', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({id: id})
-        })
-        .then(response => response.json())
-        .then(data => {
-            if(data.success) {
-                this.closest('li').remove();
-            }
-        })
-        .catch(err => console.error('Error:', err));
-    });
-});
-
-// Bookmark functionality
-document.querySelectorAll('.bookmark-btn').forEach(btn => {
-    btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        toggleBookmark(this);
-    });
-});
-
-// Bookmark Toggle Function
-function toggleBookmark(button) {
-    const isBookmarked = button.classList.contains('bookmarked');
-    const icon = button.querySelector('i');
-    
-    // Get article data from data attributes
-    const article = {
-        url: button.dataset.url,
-        title: button.dataset.title,
-        image: button.dataset.image,
-        source: button.dataset.source,
-        summary: button.dataset.summary
-    };
-    
-    console.log('Bookmark button clicked, isBookmarked:', isBookmarked);
-    console.log('Article data:', article);
-    
-    if (isBookmarked) {
-        // Remove bookmark
-        fetch('/remove_bookmark', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({url: article.url})
-        })
-        .then(response => {
-            console.log('Remove response status:', response.status);
-            if (!response.ok) {
-                throw new Error('Failed to remove bookmark');
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Remove response:', data);
-            button.classList.remove('bookmarked');
-            icon.classList.remove('bi-bookmark-fill');
-            icon.classList.add('bi-bookmark');
-            showToast('Removed from bookmarks', 'info');
-        })
-        .catch(err => {
-            console.error('Error:', err);
-            showToast('Failed to remove bookmark', 'error');
-        });
-    } else {
-        // Add bookmark
-        console.log('Adding bookmark:', article);
-        fetch('/add_bookmark', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(article)
-        })
-        .then(response => {
-            console.log('Add response status:', response.status);
-            if (response.status === 409) {
-                showToast('Already bookmarked', 'info');
-                return null;
-            }
-            if (!response.ok) {
-                throw new Error('Failed to bookmark');
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Add response:', data);
-            if (data) {
-                button.classList.add('bookmarked');
-                icon.classList.remove('bi-bookmark');
-                icon.classList.add('bi-bookmark-fill');
-                showToast('Bookmarked!', 'success');
-            }
-        })
-        .catch(err => {
-            console.error('Error:', err);
-            showToast('Failed to bookmark', 'error');
-        });
-    }
-}
-
-// Toast Notification
-function showToast(message, type = 'info') {
-    const toastContainer = document.createElement('div');
-    toastContainer.style.cssText = `
-        position: fixed;
-        top: 100px;
-        right: 20px;
-        z-index: 9999;
-        animation: slideIn 0.3s ease-out;
-    `;
-    
-    const colors = {
-        success: 'var(--accent-lime)',
-        error: 'var(--accent-primary)',
-        info: '#00aaff'
-    };
-    
-    toastContainer.innerHTML = `
-        <div class="alert alert-${type}" style="
-            background: var(--bg-card);
-            border-left: 4px solid ${colors[type]};
-            box-shadow: var(--shadow-lg);
-            min-width: 250px;
-        ">
-            ${message}
+<!-- History and Saved Previews -->
+<div class="flex flex-wrap" style="gap: 2rem;">
+    <div style="flex: 1; min-width: 300px;">
+        <div class="flex items-center justify-between mb-4 border-b" style="border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+            <h2 style="font-size: 1.5rem;">Recently Read</h2>
+            <a href="{{ url_for('history') }}" class="text-sm" style="color: var(--accent);">View All &rarr;</a>
         </div>
-    `;
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+            {% for article in recent_read %}
+            <a href="{{ url_for('article_detail', id=article.id) }}">
+                <div class="card" style="padding: 1rem; border-left: 3px solid var(--accent); border-radius: 4px;">
+                    <h4 style="font-size: 1rem; margin-bottom: 0.25rem;">{{ article.title }}</h4>
+                    <span class="text-xs text-muted">{{ article.source_name }} &bull; {{ article.published_at[:10] }}</span>
+                </div>
+            </a>
+            {% endfor %}
+            {% if not recent_read %} <p class="text-muted">No history yet.</p> {% endif %}
+        </div>
+    </div>
     
-    document.body.appendChild(toastContainer);
-    
-    setTimeout(() => {
-        toastContainer.style.animation = 'slideOut 0.3s ease-out';
-        setTimeout(() => toastContainer.remove(), 300);
-    }, 3000);
-}
-
-// CSS for toast animations
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from { transform: translateX(400px); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-    }
-    @keyframes slideOut {
-        from { transform: translateX(0); opacity: 1; }
-        to { transform: translateX(400px); opacity: 0; }
-    }
-`;
-document.head.appendChild(style);
-</script>
+    <div style="flex: 1; min-width: 300px;">
+        <div class="flex items-center justify-between mb-4 border-b" style="border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+            <h2 style="font-size: 1.5rem;">Saved Articles</h2>
+            <a href="{{ url_for('saved') }}" class="text-sm" style="color: var(--accent);">View All &rarr;</a>
+        </div>
+        <div class="article-grid" style="grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+            {% for article in recent_saved %}
+            <a href="{{ url_for('article_detail', id=article.id) }}">
+                <div class="card" style="height: 150px; position:relative;">
+                    <img src="{{ article.image_url }}" alt="" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\'%3E%3Crect width=\'100\' height=\'100\' fill=\'%231a1a1a\'/%3E%3C/svg%3E'" style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit: cover;">
+                    <div style="position:absolute; bottom:0; padding:1rem; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); width: calc(100% - 2rem);">
+                        <h4 style="color: white; font-size: 0.9rem; margin:0; text-shadow: 1px 1px 3px black; display:-webkit-box; -webkit-line-clamp:2; overflow:hidden; -webkit-box-orient:vertical;">{{ article.title }}</h4>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% if not recent_saved %} <p class="text-muted">No saved articles yet.</p> {% endif %}
+    </div>
+</div>
 {% endblock %}

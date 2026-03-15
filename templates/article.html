@@ -1,0 +1,125 @@
+<!-- article.html - Template for displaying a single news article with details and related articles -->
+{% extends 'base.html' %}
+{% from 'macros.html' import render_article_card %}
+
+{% block content %}
+<div class="flex" style="gap: 3rem; flex-wrap: wrap;">
+    <!-- Main Article -->
+    <div style="flex: 2; min-width: 0;">
+        <div class="card-badges mb-4">
+            <span class="badge badge-category" style="font-size: 0.85rem;">{{ article.category | title }}</span>
+            <span class="badge 
+                {% if article.bias_label == 'Neutral' %}badge-neutral
+                {% elif article.bias_label == 'Slight Bias' %}badge-slight
+                {% else %}badge-strong{% endif %}" style="font-size: 0.85rem;">
+                {{ article.bias_label }} (Score: {{ "%.2f"|format(article.bias_score) }})
+            </span>
+            <span class="badge 
+                {% if article.sentiment_label == 'Positive' %}badge-pos
+                {% elif article.sentiment_label == 'Negative' %}badge-neg
+                {% else %}badge-neutral{% endif %}" style="font-size: 0.85rem;">
+                {{ article.sentiment_label }}
+            </span>
+        </div>
+
+        <h1 style="font-size: 2.2rem; margin-bottom: 1rem; line-height: 1.2;">{{ article.title }}</h1>
+
+        <div class="flex items-center justify-between mb-4 pb-4" style="border-bottom: 1px solid var(--border-color);">
+            <div class="text-muted">
+                <strong>{{ article.source_name }}</strong> &bull; {{ article.published_at[:10] }}
+            </div>
+            {% if current_user.is_authenticated %}
+            <button id="saveBtn" class="btn btn-outline" style="padding: 0.5rem 1rem;">
+                <span id="saveIcon">{% if saved %}★{% else %}☆{% endif %}</span>
+                <span id="saveText">{% if saved %}Saved{% else %}Save Article{% endif %}</span>
+            </button>
+            {% endif %}
+        </div>
+
+        {% if article.image_url %}
+        <img src="{{ article.image_url }}" alt="Article Image"
+            style="width: 100%; max-height: 500px; object-fit: cover; border-radius: 12px; margin-bottom: 2rem;"
+            onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'800\' height=\'400\'%3E%3Crect width=\'800\' height=\'400\' fill=\'%231a1a1a\'/%3E%3C/svg%3E'">
+        {% endif %}
+
+        <!-- Summary Box -->
+        <div class="mb-8"
+            style="background-color: var(--pos-bg); border-left: 4px solid var(--pos-text); padding: 1.5rem; border-radius: 0 8px 8px 0;">
+            <h3
+                style="color: var(--pos-text); margin-top: 0; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                AI Quick Summary
+            </h3>
+            <p style="color: #1e3a8a; line-height: 1.6; margin-bottom: 0;">{{ article.summary }}</p>
+        </div>
+
+        <!-- About This Article Card -->
+        <div class="mb-8" style="background-color: var(--card-bg); padding: 1.5rem; border: 1px solid var(--border-color); border-radius: 8px;">
+            <h3 class="mb-3" style="font-size: 1.25rem;">About This Article</h3>
+            <p style="margin-bottom: 0.5rem; color: var(--text-primary);">
+                <strong>Source:</strong> {{ article.source_name }}
+            </p>
+            <p style="margin-bottom: 1rem; color: var(--text-primary);">
+                <strong>Published:</strong> {{ article.published_at[:10] }}
+            </p>
+            <p style="margin-bottom: 0; color: var(--text-muted); font-style: italic;">
+                Read the full story by clicking the button below.
+            </p>
+        </div>
+
+        <!-- Bias Meter -->
+        <div class="mb-8"
+            style="background-color: var(--card-bg); padding: 1.5rem; border: 1px solid var(--border-color); border-radius: 8px;">
+            <h3 class="mb-4">Bias Analysis</h3>
+            <div
+                style="height: 12px; border-radius: 6px; background: linear-gradient(to right, #22c55e 35%, #f59e0b 35% 65%, #ef4444 65%); position: relative; margin-bottom: 1rem;">
+                <!-- marker -->
+                <div
+                    style="position: absolute; top: -6px; left: calc({{ article.bias_score * 100 }}% - 6px); width: 12px; height: 24px; background: var(--text-primary); border-radius: 2px; box-shadow: 0 0 4px rgba(0,0,0,0.5);">
+                </div>
+            </div>
+            <div class="flex justify-between text-sm text-muted">
+                <span>Neutral (0.0)</span>
+                <span>Strong Bias (1.0)</span>
+            </div>
+        </div>
+
+        <div class="text-center mb-8">
+            <a href="{{ article.url }}" target="_blank" rel="noopener noreferrer" class="btn btn-primary"
+                style="font-size: 1.1rem; padding: 1rem 2rem;">Read Full Article at {{ article.source_name }} ↗</a>
+        </div>
+    </div>
+
+    <!-- Sidebar Related -->
+    <aside style="flex: 1; min-width: 300px;">
+        <h3 class="mb-4" style="border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">Related in {{
+            article.category | title }}</h3>
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            {% for rel in related %}
+            {{ render_article_card(rel) }}
+            {% endfor %}
+            {% if not related %}
+            <p class="text-muted">No related articles found.</p>
+            {% endif %}
+        </div>
+    </aside>
+</div>
+
+{% if current_user.is_authenticated %}
+<script>
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            const res = await fetch('{{ url_for("toggle_save", article_id=article.id) }}', { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('saveIcon').innerText = data.saved ? '★' : '☆';
+                document.getElementById('saveText').innerText = data.saved ? 'Saved' : 'Save Article';
+            }
+        });
+    }
+</script>
+{% endif %}
+{% endblock %}

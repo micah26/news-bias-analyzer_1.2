@@ -1,0 +1,19 @@
+<!-- category.html  -->
+{% extends 'base.html' %}
+{% from 'macros.html' import render_article_card %}
+
+{% block content %}
+<div class="mb-8 flex items-center justify-between">
+    <h1 style="font-size: 2.5rem; text-transform: capitalize;">{{ category }} News</h1>
+    <span class="badge badge-category">{{ articles|length }} articles</span>
+</div>
+
+<div class="article-grid">
+    {% for article in articles %}
+        {{ render_article_card(article) }}
+    {% endfor %}
+    {% if not articles %}
+        <p class="text-muted">No articles found in this category.</p>
+    {% endif %}
+</div>
+{% endblock %}

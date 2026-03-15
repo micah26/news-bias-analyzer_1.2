@@ -1,3 +1,4 @@
+<!--bookmarks.html  -->
 {% extends "base.html" %}
 {% block title %}Bookmarks{% endblock %}
 
@@ -48,13 +49,13 @@
                         <p class="card-text flex-grow-1">{{ (article.summary or 'No description available')|truncate(150) }}</p>
                         
                         <div class="d-grid gap-2 mt-3">
-                            <a 
-                                href="{{ article.url }}" 
-                                target="_blank" 
-                                class="btn btn-outline-primary btn-sm"
+                            <button 
+                                class="btn btn-outline-primary btn-sm analyze-btn"
+                                data-url="{{ article.url }}"
+                                data-source="{{ article.source }}"
                             >
-                                <i class="bi bi-arrow-up-right"></i> Read Full Article
-                            </a>
+                                <i class="bi bi-robot"></i> Analyze & Summarize
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -108,6 +109,73 @@ function removeBookmark(button, url) {
         showToast('Failed to remove bookmark', 'error');
     });
 }
+
+// Analysis functionality
+document.querySelectorAll('.analyze-btn').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        const url = this.dataset.url;
+        const source = this.dataset.source;
+        
+        // Setup Modal
+        const modal = new bootstrap.Modal(document.getElementById('analysisModal'));
+        
+        // Reset state
+        document.getElementById('analysisLoading').classList.remove('d-none');
+        document.getElementById('analysisResult').classList.add('d-none');
+        document.getElementById('modalError').classList.add('d-none');
+        document.getElementById('modalReadFull').classList.add('d-none');
+        
+        document.getElementById('modalSource').textContent = source;
+        document.getElementById('modalReadFull').href = url;
+        
+        modal.show();
+        
+        // Fetch Analysis
+        fetch('/analyze_article', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({url: url})
+        })
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('analysisLoading').classList.add('d-none');
+            
+            if (data.success) {
+                document.getElementById('analysisResult').classList.remove('d-none');
+                document.getElementById('modalReadFull').classList.remove('d-none');
+                
+                document.getElementById('modalSummary').textContent = data.summary;
+                
+                const badge = document.getElementById('modalSentimentBadge');
+                if (data.sentiment === 'positive') {
+                    badge.className = 'badge bg-success';
+                    badge.innerHTML = '<i class="bi bi-emoji-smile me-1"></i> Positive';
+                } else if (data.sentiment === 'negative') {
+                    badge.className = 'badge bg-danger';
+                    badge.innerHTML = '<i class="bi bi-emoji-frown me-1"></i> Negative';
+                } else {
+                    badge.className = 'badge bg-secondary';
+                    badge.innerHTML = '<i class="bi bi-emoji-neutral me-1"></i> Neutral';
+                }
+            } else {
+                document.getElementById('analysisResult').classList.remove('d-none');
+                const errorEl = document.getElementById('modalError');
+                errorEl.textContent = data.error || 'An error occurred during analysis.';
+                errorEl.classList.remove('d-none');
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            document.getElementById('analysisLoading').classList.add('d-none');
+            document.getElementById('analysisResult').classList.remove('d-none');
+            const errorEl = document.getElementById('modalError');
+            errorEl.textContent = 'Failed to connect to the server.';
+            errorEl.classList.remove('d-none');
+        });
+    });
+});
 
 // Toast Notification
 function showToast(message, type = 'info') {

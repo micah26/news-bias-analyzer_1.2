@@ -1,0 +1,19 @@
+<!-- saved.html  -->
+{% extends 'base.html' %}
+{% from 'macros.html' import render_article_card %}
+
+{% block content %}
+<div class="mb-8 flex items-center justify-between">
+    <h1 style="font-size: 2.5rem;">Saved Articles</h1>
+    <span class="badge badge-category">{{ articles|length }} articles</span>
+</div>
+
+<div class="article-grid">
+    {% for article in articles %}
+        {{ render_article_card(article) }}
+    {% endfor %}
+    {% if not articles %}
+        <p class="text-muted">You haven't saved any articles yet.</p>
+    {% endif %}
+</div>
+{% endblock %}

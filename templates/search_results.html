@@ -1,0 +1,55 @@
+<!-- search_results.html  -->
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mb-8 border-b pb-4" style="border-bottom: 1px solid var(--border-color);">
+    <h1 style="font-size: 2rem; margin-bottom: 0.5rem;">Search Results for <span style="color: var(--accent);">"{{ q }}"</span></h1>
+    <p class="text-muted">Found coverage from <strong>{{ grouped_articles|length }}</strong> different sources.</p>
+</div>
+
+<div class="article-grid" style="grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 2rem;">
+    {% for source, articles in grouped_articles.items() %}
+    <div class="card" style="border: 2px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); display: flex; flex-direction: column;">
+        <div style="background-color: var(--bg-color); padding: 1rem; border-bottom: 1px solid var(--border-color);">
+            <h3 style="margin: 0; font-family: var(--font-heading); font-size: 1.2rem;">{{ source }}</h3>
+        </div>
+        <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; flex: 1;">
+            {% for art in articles %}
+            <div style="border-left: 3px solid var(--border-color); padding-left: 1rem;">
+                <div class="card-badges mb-2">
+                    <span class="badge 
+                        {% if art.bias_label == 'Neutral' %}badge-neutral
+                        {% elif art.bias_label == 'Slight Bias' %}badge-slight
+                        {% else %}badge-strong{% endif %}">
+                        {{ art.bias_label }}
+                    </span>
+                    <span class="badge 
+                        {% if art.sentiment_label == 'Positive' %}badge-pos
+                        {% elif art.sentiment_label == 'Negative' %}badge-neg
+                        {% else %}badge-neutral{% endif %}">
+                        {{ art.sentiment_label }}
+                    </span>
+                </div>
+                {% if art.image_url %}
+                <div style="width: 100%; height: 120px; overflow: hidden; border-radius: 4px; margin-bottom: 1rem;">
+                    <img src="{{ art.image_url }}" alt="" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'">
+                </div>
+                {% endif %}
+                <a href="{{ url_for('article_detail', id=art.id) }}">
+                    <h4 style="font-size: 1.1rem; margin-bottom: 0.5rem; line-height: 1.4; color: var(--text-primary);">{{ art.title }}</h4>
+                </a>
+                <p class="text-muted text-sm" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 0.5rem;">{{ art.description }}</p>
+                <div class="text-xs text-muted">{{ art.published_at[:10] }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% if not grouped_articles %}
+    <div class="text-center mt-8">
+        <h3 class="text-muted">No articles found for this topic.</h3>
+    </div>
+{% endif %}
+{% endblock %}

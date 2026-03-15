@@ -1,0 +1,40 @@
+<!-- macros.html  -->
+{% macro render_article_card(article) %}
+<div class="card">
+    <a href="{{ url_for('article_detail', id=article.id) }}">
+        {% if article.image_url %}
+            <img src="{{ article.image_url }}" alt="Article Image" class="card-img" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'250\'%3E%3Crect width=\'400\' height=\'250\' fill=\'%231a1a1a\'/%3E%3C/svg%3E'">
+        {% else %}
+            <div class="card-img" style="background:var(--border-color); display:flex; align-items:center; justify-content:center;">
+                <span class="text-muted">No Image</span>
+            </div>
+        {% endif %}
+    </a>
+    <div class="card-content">
+        <div class="card-badges">
+            <span class="badge badge-category">{{ article.category | title }}</span>
+            <span class="badge 
+                {% if article.bias_label == 'Neutral' %}badge-neutral
+                {% elif article.bias_label == 'Slight Bias' %}badge-slight
+                {% else %}badge-strong{% endif %}">
+                {{ article.bias_label }}
+            </span>
+            <span class="badge 
+                {% if article.sentiment_label == 'Positive' %}badge-pos
+                {% elif article.sentiment_label == 'Negative' %}badge-neg
+                {% else %}badge-neutral{% endif %}">
+                {{ article.sentiment_label }}
+            </span>
+        </div>
+        <a href="{{ url_for('article_detail', id=article.id) }}">
+            <h3 class="card-title">{{ article.title }}</h3>
+        </a>
+        <p class="card-desc">{{ article.description or 'No description available for this article.' }}</p>
+        
+        <div class="card-footer">
+            <span class="text-muted">{{ article.source_name }}</span>
+            <span class="text-muted">{{ article.published_at[:10] }}</span>
+        </div>
+    </div>
+</div>
+{% endmacro %}
