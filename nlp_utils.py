@@ -133,22 +133,23 @@ def analyze_bias(text: str) -> dict:
     # --- PRIMARY: ML model (RoBERTa trained on real news bias data) ---
     if bias_classifier is not None:
         try:
-            # Model has token limits — clip to first 400 words safely
+            # Clip to 300 words — safer token limit to avoid overflow
             words = text.split()
-            clipped = " ".join(words[:400])
-            result = bias_classifier(clipped)[0]
-            label_raw = result['label']   # 'Biased' or 'Non-biased'
+            clipped = " ".join(words[:300])
+
+            # truncation=True is safety net if still over limit
+            result = bias_classifier(clipped, truncation=True, max_length=512)[0]
+            label_raw = result['label']
             confidence = result['score']
 
-            if label_raw == 'Non-biased':
-                # Low score = very neutral
+            # da-RoBERTa-BABE: LABEL_0 = Biased, LABEL_1 = Non-biased
+            if label_raw == 'LABEL_1' or label_raw == 'Non-biased':
                 final_score = round(1 - confidence, 2)
                 if final_score < 0.35:
                     label = "Neutral"
                 else:
                     label = "Slight Bias"
-            else:
-                # Biased — decide how strongly
+            else:  # LABEL_0 or 'Biased'
                 final_score = round(confidence, 2)
                 if confidence > 0.80:
                     label = "Strong Bias"
@@ -161,7 +162,7 @@ def analyze_bias(text: str) -> dict:
         except Exception as e:
             print(f"Bias ML inference failed, using word list fallback: {e}")
 
-    # --- FALLBACK: Word list (if model not loaded or inference failed) ---
+    # --- FALLBACK: Word list ---
     print("Using word list fallback for bias detection.")
     return _analyze_bias_wordlist(text)
 
@@ -190,10 +191,13 @@ def _summarize_with_distilbart(text: str) -> str:
     if summarizer is None:
         return ""
     try:
+        # Clip to 600 words — safer token limit for DistilBART (max 1024 tokens)
         words = text.split()
-        if len(words) > 900:
-            text = " ".join(words[:900])
-        result = summarizer(text, max_length=150, min_length=50, do_sample=False)
+        if len(words) > 600:
+            text = " ".join(words[:600])
+
+        # truncation=True handles any remaining overflow safely
+        result = summarizer(text, max_length=150, min_length=50, do_sample=False, truncation=True)
         summary = result[0]['summary_text'].strip()
         print(f"DistilBART summary: {summary[:80]}...")
         return summary
@@ -212,6 +216,7 @@ def _summarize_with_gemini(text: str, title: str, description: str) -> str:
         model = genai.GenerativeModel('gemini-1.5-flash')
 
         if text and len(text.split()) >= 50:
+            # We have real article content — send it to Gemini
             words = text.split()
             clipped = " ".join(words[:600])
             prompt = (
@@ -222,6 +227,7 @@ def _summarize_with_gemini(text: str, title: str, description: str) -> str:
                 f"Article text:\n{clipped}"
             )
         else:
+            # Only title + description available
             prompt = (
                 f"You are a news summarizer. Using ONLY the following title and description, "
                 f"write a 3-4 sentence summary. Do not invent facts.\n\n"

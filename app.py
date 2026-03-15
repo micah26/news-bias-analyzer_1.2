@@ -8,17 +8,18 @@ import datetime
 import requests
 from functools import wraps
 from nlp_utils import summarize_text, analyze_sentiment, analyze_bias, init_nlp_models
-
+from dotenv import load_dotenv
+import os
 app = Flask(__name__)
-app.secret_key = '1b568c10470d11afff78269b170efc6b82a4e0782252c087387cc6e839c53a5d'
+load_dotenv()
+app.secret_key = os.getenv('SECRET_KEY')
+NEWS_API_KEY = os.getenv('NEWS_API_KEY')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+NEWS_API_BASE = 'https://newsapi.org/v2'
 
 # --- CONFIGURATION ---
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-NEWS_API_KEY = '008bf08478f2492b87f0cd850b569efe'
-GEMINI_API_KEY = 'AIzaSyCoO99xN4pQeB8jn7dtoawkBKz4eFtqZ3Q'
-NEWS_API_BASE = 'https://newsapi.org/v2'
 
 db = SQLAlchemy(app)
 login_manager = LoginManager()
@@ -124,25 +125,13 @@ def process_and_save_article(item, category):
         
     description = item.get('description') or ''
     
-    # Attempt to scrape full text
-    full_text = ""
-    try:
-        from newspaper import Article as NewsArticle
-        news_art = NewsArticle(url, browser_user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
-        news_art.download()
-        news_art.parse()
-        if news_art.text and len(news_art.text.split()) > 50:
-            full_text = news_art.text
-    except Exception as e:
-        print(f"Scraping failed for {url}: {e}")
-        
-    if not full_text:
-        full_text = f"{title}. {description}"
+    # FAST STAGE: No scraping or heavy model inference
+    base_text = f"{title}. {description}"
     
-    # NLP
-    bias_result = analyze_bias(full_text)
-    sentiment_result = analyze_sentiment(full_text)
-    summary = summarize_text(full_text, article_url=url, title=title, description=description)
+    # Run only VADER sentiment (fast) and word-list bias detection (instant)
+    from nlp_utils import analyze_sentiment, _analyze_bias_wordlist
+    sentiment_result = analyze_sentiment(base_text)
+    bias_result = _analyze_bias_wordlist(base_text)
     
     image_url = item.get('urlToImage')
     if not image_url or image_url == 'null' or len(image_url) < 10:
@@ -156,7 +145,7 @@ def process_and_save_article(item, category):
         source_name=item.get('source', {}).get('name', 'Unknown'),
         category=category,
         published_at=format_date(item.get('publishedAt', '')),
-        summary=summary,
+        summary=None,  # Summary is generated on demand
         bias_score=bias_result['score'],
         bias_label=bias_result['label'],
         sentiment_score=sentiment_result['score'],
@@ -233,6 +222,37 @@ def category_view(category):
 def article_detail(id):
     article = Article.query.get_or_404(id)
     
+    # ON-DEMAND PROCESSING: Only process once
+    if not article.summary or str(article.summary).strip() == "":
+        try:
+            full_text = ""
+            from newspaper import Article as NewsArticle
+            news_art = NewsArticle(article.url, browser_user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64)')
+            news_art.download()
+            news_art.parse()
+            if news_art.text and len(news_art.text.split()) > 50:
+                full_text = news_art.text
+        except Exception as e:
+            print(f"Scraping failed for {article.url}: {e}")
+            
+        if not full_text:
+            full_text = f"{article.title}. {article.description}"
+            
+        try:
+            from nlp_utils import analyze_bias, summarize_text
+            summary = summarize_text(full_text, article_url=article.url, title=article.title, description=article.description)
+            bias_result = analyze_bias(full_text)
+            
+            article.summary = summary
+            article.bias_score = bias_result['score']
+            article.bias_label = bias_result['label']
+            db.session.commit()
+        except Exception as e:
+            print(f"Processing failed for {article.id}: {e}")
+            if not article.summary:
+                article.summary = "Processing failed."
+            db.session.commit()
+    
     if current_user.is_authenticated:
         # Save to read history
         existing = ReadHistory.query.filter_by(user_id=current_user.id, article_id=id).first()
@@ -261,9 +281,8 @@ def search():
         db.session.add(new_search)
         db.session.commit()
         
-        fetched_articles = []
-        
         # 1. Fetch live from NewsAPI to ensure we have broad, multi-source coverage for the exact query
+        # Since process_and_save_article is now lightweight (no models/scraping), this executes very fast.
         try:
             res = requests.get(f'{NEWS_API_BASE}/everything', params={
                 'apiKey': NEWS_API_KEY, 'q': q, 'language': 'en', 'sortBy': 'relevancy', 'pageSize': 100
@@ -271,32 +290,51 @@ def search():
             if res.status_code == 200:
                 data = res.json()
                 for item in data.get('articles', []):
-                    art = process_and_save_article(item, 'general')
-                    if art:
-                        fetched_articles.append(art)
+                    process_and_save_article(item, 'general')
                 db.session.commit()
         except Exception as e:
             print(f"Search fetch error: {e}")
             
-        # 2. If API failed or returned 0, fallback to a more flexible local DB search
-        if not fetched_articles:
-            from sqlalchemy import and_, or_
-            keywords = q.split()
-            conditions = []
-            for kw in keywords:
-                kw_like = f"%{kw}%"
-                conditions.append(
-                    or_(
-                        Article.title.ilike(kw_like),
-                        Article.description.ilike(kw_like),
-                        Article.summary.ilike(kw_like),
-                        Article.source_name.ilike(kw_like)
-                    )
-                )
-            if conditions:
-                fetched_articles = Article.query.filter(and_(*conditions)).order_by(Article.published_at.desc()).limit(100).all()
+        # 2. Local DB Search (fast search architecture with relevance scoring)
+        import re
+        keywords = q.split()
+        patterns = []
+        for kw in keywords:
+            if len(kw) <= 3:
+                # Exact word match for short keywords (e.g., "AI", "VR") to prevent "AI" matching "sAId"
+                patterns.append(re.compile(rf'\b{re.escape(kw)}\b', re.IGNORECASE))
+            else:
+                # Substring match for longer words (e.g., "tech" matches "technology")
+                patterns.append(re.compile(re.escape(kw), re.IGNORECASE))
+                
+        all_articles = Article.query.all()
+        scored_articles = []
         
-        # 3. Group by source (limit to ~4 per source to keep UI clean)
+        for art in all_articles:
+            title_text = art.title or ""
+            desc_text = f"{art.description or ''} {art.summary or ''} {art.source_name or ''}"
+            
+            matches_all = True
+            score = 0
+            
+            for pat in patterns:
+                title_matches = len(pat.findall(title_text))
+                desc_matches = len(pat.findall(desc_text))
+                
+                if title_matches == 0 and desc_matches == 0:
+                    matches_all = False
+                    break
+                    
+                score += (title_matches * 5) + desc_matches
+                
+            if matches_all:
+                scored_articles.append((score, art.published_at or "", art))
+                
+        # Sort by score descending, then by published_at descending
+        scored_articles.sort(key=lambda x: (x[0], x[1]), reverse=True)
+        fetched_articles = [item[2] for item in scored_articles[:100]]
+        
+        # Group by source (limit to ~4 per source to keep UI clean)
         for art in fetched_articles:
             source_name = art.source_name or 'Unknown'
             if source_name not in grouped_articles:
