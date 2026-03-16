@@ -290,7 +290,7 @@ def search():
             if res.status_code == 200:
                 data = res.json()
                 for item in data.get('articles', []):
-                    process_and_save_article(item, 'general')
+                    process_and_save_article(item, 'search')
                 db.session.commit()
         except Exception as e:
             print(f"Search fetch error: {e}")
