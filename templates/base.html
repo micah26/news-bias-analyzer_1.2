@@ -1,4 +1,4 @@
-<!-- base.html - Base template for the news aggregator application with navigation, search, and theme toggle -->
+<!-- base.html - Base template for the news aggregator application -->
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -7,14 +7,11 @@
     <title>{% block title %}NewsLens{% endblock %}</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <style>
-        /* Specific tweaks */
-    </style>
 </head>
 <body>
     <nav class="navbar">
         <a href="{{ url_for('home') }}" class="logo">News<span>Lens</span></a>
-        
+
         <div class="nav-links">
             <a href="{{ url_for('home') }}">Home</a>
             <a href="{{ url_for('category_view', category='tech') }}">Tech</a>
@@ -23,7 +20,7 @@
             <a href="{{ url_for('category_view', category='science') }}">Science</a>
             <a href="{{ url_for('category_view', category='culture') }}">Culture</a>
         </div>
-        
+
         <div class="nav-right">
             <!-- Search -->
             <div class="search-container" id="searchContainer">
@@ -40,26 +37,24 @@
                         <span>Recent Searches</span>
                         <button class="history-clear-all" id="clearHistoryBtn">Clear All</button>
                     </div>
-                    <div class="search-history-dropdown" id="searchHistoryList">
-                        <!-- Populated by JS -->
-                    </div>
+                    <div class="search-history-dropdown" id="searchHistoryList"></div>
                     {% else %}
-                    <div class="history-header">
-                        <span>Login to save history</span>
-                    </div>
+                    <div class="history-header"><span>Login to save history</span></div>
                     {% endif %}
                 </div>
             </div>
-            
+
             <!-- Theme Toggle -->
             <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
                 <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                 <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
             </button>
-            
+
             {% if current_user.is_authenticated %}
-                <a href="{{ url_for('dashboard') }}" class="btn btn-primary" style="padding: 0.5rem 1rem;">Dashboard</a>
-                <a href="{{ url_for('logout') }}" class="btn btn-outline" style="padding: 0.5rem 1rem;">Logout</a>
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline" style="padding: 0.5rem 1rem;">Dashboard</a>
+                <!-- Settings link — only shown when logged in -->
+                <a href="{{ url_for('settings') }}" class="btn btn-outline" style="padding: 0.5rem 1rem;">Settings</a>
+                <a href="{{ url_for('logout') }}" class="btn btn-primary" style="padding: 0.5rem 1rem;">Logout</a>
             {% else %}
                 <a href="{{ url_for('login') }}" class="btn btn-outline" style="padding: 0.5rem 1rem;">Login</a>
                 <a href="{{ url_for('register') }}" class="btn btn-primary" style="padding: 0.5rem 1rem;">Sign Up</a>
@@ -77,7 +72,7 @@
                 </ul>
             {% endif %}
         {% endwith %}
-        
+
         {% block content %}{% endblock %}
     </div>
 
@@ -88,38 +83,29 @@
     </footer>
 
     <script>
-        // Theme Toggle Logic
+        // Theme Toggle
         const themeToggle = document.getElementById('themeToggle');
-        const getPreferredTheme = () => {
-            return localStorage.getItem('nl-theme') || 'dark';
-        };
+        const getPreferredTheme = () => localStorage.getItem('nl-theme') || 'dark';
         const setTheme = (theme) => {
             document.documentElement.setAttribute('data-theme', theme);
             localStorage.setItem('nl-theme', theme);
         };
-        
         setTheme(getPreferredTheme());
-        
         themeToggle.addEventListener('click', () => {
             const current = document.documentElement.getAttribute('data-theme');
             setTheme(current === 'dark' ? 'light' : 'dark');
         });
 
-        // Search Dropdown Logic
+        // Search Dropdown
         const searchBtn = document.getElementById('searchBtn');
         const searchWrapper = document.getElementById('searchWrapper');
         const searchInput = document.getElementById('searchInput');
         const searchHistoryList = document.getElementById('searchHistoryList');
         const clearHistoryBtn = document.getElementById('clearHistoryBtn');
         const container = document.getElementById('searchContainer');
-        
         let isOpen = false;
-        
-        const closeSearch = () => {
-            isOpen = false;
-            searchWrapper.classList.remove('active');
-        };
-        
+
+        const closeSearch = () => { isOpen = false; searchWrapper.classList.remove('active'); };
         const openSearch = () => {
             if (!isOpen) {
                 isOpen = true;
@@ -131,27 +117,10 @@
             }
         };
 
-        searchBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            openSearch();
-        });
-        
-        searchInput.addEventListener('focus', () => {
-            if (!isOpen) { openSearch(); return; }
-            fetchHistory(); // fetch fresh on focus as requested
-        });
-        
-        document.addEventListener('click', (e) => {
-            if (isOpen && !container.contains(e.target)) {
-                closeSearch();
-            }
-        });
-        
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && isOpen) {
-                closeSearch();
-            }
-        });
+        searchBtn.addEventListener('click', (e) => { e.stopPropagation(); openSearch(); });
+        searchInput.addEventListener('focus', () => { if (!isOpen) { openSearch(); return; } fetchHistory(); });
+        document.addEventListener('click', (e) => { if (isOpen && !container.contains(e.target)) closeSearch(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen) closeSearch(); });
 
         const fetchHistory = async () => {
             {% if current_user.is_authenticated %}
@@ -159,24 +128,18 @@
                 const res = await fetch("{{ url_for('get_search_history') }}");
                 const data = await res.json();
                 renderHistory(data.history || []);
-            } catch (err) {
-                console.error("Failed to fetch history", err);
-            }
+            } catch (err) { console.error("Failed to fetch history", err); }
             {% endif %}
         };
-        
+
         const renderHistory = (history) => {
             if (!searchHistoryList) return;
             const term = searchInput.value.toLowerCase();
-            
-            // Client side filter
             const filtered = history.filter(item => item.query.toLowerCase().includes(term));
-            
             if (filtered.length === 0) {
                 searchHistoryList.innerHTML = `<div class="history-item"><div class="history-item-text">No recent searches.</div></div>`;
                 return;
             }
-            
             searchHistoryList.innerHTML = filtered.map(item => `
                 <div class="history-item" data-query="${item.query.replace(/"/g, '&quot;')}">
                     <div class="history-item-text">${item.query}</div>
@@ -185,27 +148,23 @@
                     </button>
                 </div>
             `).join('');
-            
-            // Attach events
+
             searchHistoryList.querySelectorAll('.history-item-text').forEach(el => {
                 el.addEventListener('click', (e) => {
                     searchInput.value = e.target.closest('.history-item').dataset.query;
                     document.getElementById('searchForm').submit();
                 });
             });
-            
             searchHistoryList.querySelectorAll('.history-item-delete').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    const id = btn.dataset.id;
-                    await fetch(`/api/search-history/${id}`, { method: 'DELETE' });
-                    fetchHistory(); // refetch
+                    await fetch(`/api/search-history/${btn.dataset.id}`, { method: 'DELETE' });
+                    fetchHistory();
                 });
             });
         };
-        
-        searchInput.addEventListener('input', fetchHistory); // Fetch fresh & filter on type
-        
+
+        searchInput.addEventListener('input', fetchHistory);
         if (clearHistoryBtn) {
             clearHistoryBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
@@ -213,7 +172,6 @@
                 fetchHistory();
             });
         }
-
     </script>
 </body>
 </html>

@@ -532,3 +532,53 @@ footer {
   color: #e5e7eb;
   font-size: 1.1rem;
 }
+/* ── No-Image Placeholder for Article Cards ── */
+.card-img-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+    border-bottom: 2px solid var(--accent);
+    padding: 1.25rem;
+    box-sizing: border-box;
+    text-decoration: none;
+}
+
+.card-img-placeholder-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+    width: 100%;
+}
+
+.card-img-placeholder-cat {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-transform: uppercase;
+    background: rgba(255, 0, 40, 0.12);
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+}
+
+.card-img-placeholder-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #f9f9f9;
+    line-height: 1.4;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.card-img-placeholder-source {
+    font-size: 0.72rem;
+    color: #6b7280;
+    margin-top: 0.1rem;
+}
