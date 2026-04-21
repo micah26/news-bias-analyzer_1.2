@@ -361,7 +361,7 @@ def article_detail(id):
             full_text = f"{article.title}. {article.description or ''}"
 
         try:
-            article.summary = summarize_text(
+            result = summarize_text(
                 full_text,           # pass scraped text — summarize_text won't re-scrape
                 article_url=article.url,  # kept as backup only if full_text is too short
                 title=article.title,
@@ -370,10 +370,10 @@ def article_detail(id):
             )
 
             # Re-run bias with full text
-            bias_res = analyze_bias(full_text)
-            article.bias_score = bias_res['score']
-            article.bias_label = bias_res['label']
-
+           
+            article.summary = result.get('summary', 'Summary not available.')
+            article.bias_label = result.get('bias_label', article.bias_label)
+            article.bias_score = result.get('bias_score', article.bias_score)
             # Re-run sentiment with full text
             if full_text and len(full_text.split()) > 30:
                 sentiment_res = analyze_sentiment(full_text)

@@ -8,12 +8,12 @@
         <form action="{{ url_for('login') }}" method="POST">
             <div class="mb-4">
                 <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Email Address</label>
-                <input type="email" name="email" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); outline: none; box-sizing: border-box;">
+                <input type="email" name="email" required autocomplete="off" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); outline: none; box-sizing: border-box;">
             </div>
             
             <div class="mb-6">
                 <label style="display: block; margin-bottom: 0.5rem; font-weight: 500;">Password</label>
-                <input type="password" name="password" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); outline: none; box-sizing: border-box;">
+                <input type="password" name="password" required autocomplete="off" style="width: 100%; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--input-bg); color: var(--text-primary); outline: none; box-sizing: border-box;">
             </div>
             
             <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.1rem;">Sign In</button>
